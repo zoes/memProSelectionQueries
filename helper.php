@@ -265,6 +265,10 @@ class OSMembershipRegionQueriesHelper
                 $allowedRegions[] = trim(substr($group[1], 6));
             }
         }
+        if ($debug) {
+            $r = var_export($allowedRegions, true);
+            file_put_contents($debugFile, "ALLOWED\n" . $r, FILE_APPEND);
+        }
        return $allowedRegions;
     }
     
@@ -299,4 +303,62 @@ class OSMembershipRegionQueriesHelper
         }
         return $regionNumbersToQuery;
     }
+    /**
+     * Given a last name will return all the subscriber details associated with that name
+     */
+    public function setSubscribersByName($lastName) {
+        
+    }
+    
+    /**
+     * Set the subscriber fields from a given last_name
+     * @param unknown $lastName
+     * @param unknown $standardFields
+     * @param unknown $customFields
+     */
+    public function setSubscriberDataByName($lastName, $standardFields, $customFields)
+    {
+        $db = JFactory::getDbo();
+        $query = $db->getQuery(true);
+        
+        $query->select(implode(',', $standardFields))
+        ->from('#__osmembership_subscribers')  
+        ->where($db->quoteName('last_name') . " LIKE ". $db->quote('%'.$lastName.'%'));
+     
+        
+        
+        $db->setQuery($query);
+        
+        $rows = $db->loadAssocList();
+        foreach ($rows as $row) {
+            $this->subscriberStandardFields[$row['id']] = $row;
+            $this->ids[] = $row['id'];
+        }
+        
+        if ($this->debug) {
+            $r = var_export($rows, true);
+            file_put_contents($this->debugFile, $r, FILE_APPEND);
+        }
+        
+        $this->setSubscriberCustomFields($customFields);
+        
+        // merge the standard and custom data
+        foreach ($this->subscriberStandardFields as $id => $data) {
+            $this->subscriberFields[$id] = array_merge($data, $this->subscriberCustomFields[$id]);
+        }
+    }
+    /**
+     * We will log the reason for access to a file for now. This should be in the log directory
+     */
+    public function logReason() {
+        
+    }
+    
+    /**
+     * 
+     */
+    public function checkPostDataNameQuery() {
+        
+    }
+    
 }

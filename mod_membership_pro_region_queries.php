@@ -8,70 +8,18 @@
  */
 ?>
 <script type="text/javascript">
-pdfMake.fonts= {
-Roboto: {
-    normal: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf',
-    bold: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Medium.ttf',
-    italics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Italic.ttf',
-    bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-MediumItalic.ttf'
-  }
-}
-function downloadPDFWithPDFMake() {
-  var tableHeaderText = [...document.querySelectorAll('#regionMembers thead tr th')].map(thElement => ({ text: thElement.textContent, style: 'tableHeader' }));
-
-  var tableRowCells = [...document.querySelectorAll('#regionMembers tbody tr td')].map(tdElement => ({ text: tdElement.textContent, style: 'tableData' }));
-  var tableDataAsRows = tableRowCells.reduce((rows, cellData, index) => {
-    if (index % 5 === 0) {
-      rows.push([]);
-    }
-
-    rows[rows.length - 1].push(cellData);
-    return rows;
-  }, []);
-
-  var docDefinition = {
-    header: { text: 'Region Members', alignment: 'center' },
-    footer: function(currentPage, pageCount) { return ({ text: `Page ${currentPage} of ${pageCount}`, alignment: 'center' }); },
-    content: [
-      {
-        style: 'memberTable',
-        table: {
-          headerRows: 1,
-          body: [
-            tableHeaderText,
-            ...tableDataAsRows,
-          ]
-        },
-        layout: {
-          fillColor: function(rowIndex) {
-            if (rowIndex === 0) {
-              return '#0f4871';
-            }
-            return (rowIndex % 2 === 0) ? '#f2f2f2' : null;
-          }
-        },
-      },
-    ],
-    styles: {
-      tableExample: {
-        margin: [0, 20, 0, 80],
-        fontSize: 10,
-      },
-      tableHeader: {
-        margin: 5,
-        color: 'white',
-      },
-      tableData: {
-        margin: 5,
-      },
-    },
-  };
-  
-  pdfMake.createPdf(docDefinition).download('Region members');
-}
-window.onload = function() {
-   document.querySelector('#pdfmake').addEventListener('click', downloadPDFWithPDFMake);
-}
+function validateNameForm() {
+	  var x = document.forms["namequery"]["last_name"].value;
+	  if (x = "") {
+	    alert("Name must be filled out");
+	    return false;
+	  }
+	  var x = document.forms["namequery"]["reason"].value;
+	  if (x = null || x.length < 10) {
+	    alert("You must provide a reason for wnating to access member data");
+	    return false;
+	  }
+	} 
 
 function download_table_as_csv(table_id, separator = ':') {
     // Select rows from table_id
@@ -117,7 +65,7 @@ $('#search').keyup(function() {
 </script>
 <?php
 $debugFile = "tmp/memproq.txt";
-$debug = false;
+$debug = true;
 // No direct access
 defined('_JEXEC') or die();
 
@@ -127,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $isPost = true;
     if ($debug) {
-        $r = var_export($post, true);
+        $r = var_export($_POST, true);
         file_put_contents($debugFile, "POST\n" . $r, FILE_APPEND);
     }
 }
@@ -168,13 +116,21 @@ require_once dirname(__FILE__) . '/helper.php';
 $helper = new OSMembershipRegionQueriesHelper($debug, $debugFile);
 
 if ($isPost) {
-    // Check the POST data and if OK find all the subscribers in a requested region
+    // Check the POST data and if OK find all the subscribers in a requested region or the details of members with
+    // a give last_name.
     try {
-        $regionNumbersToQuery = $helper->checkPostData();
-        $r = var_export($regionNumbersToQuery, true);
-        file_put_contents($debugFile, "QUERY\n" . $r, FILE_APPEND);
-        $helper->setSubscriberData($regionNumbersToQuery, $standardFields, $customFields);
-        $printValues = $helper->setDataForDisplay();
+        if (array_key_exists('query_region', $_POST)) {
+            $regionNumbersToQuery = $helper->checkPostData();
+            $helper->setSubscriberData($regionNumbersToQuery, $standardFields, $customFields);
+            $printValues = $helper->setDataForDisplay();
+        } elseif (array_key_exists('query_name', $_POST)) {
+            $helper->checkPostDataNameQuery();
+            $helper->logReason();
+            $helper->setSubscriberDataByName($_POST['last_name'],$standardFields, $customFields);
+            $printValues = $helper->setDataForDisplay();          
+        } else {
+            //unregognised POST key
+        }
     } catch (Exception $e) {
         echo '<br> ERROR: ' . $e->getMessage();
     }
@@ -182,8 +138,8 @@ if ($isPost) {
     // Set here to display a checklist
     // Allowed Regions are the regions that the logged in user is allowed to look at
     $allowedRegions = $helper->setAllowedRegions();
-    // Set Region numbers queries the mempro database for all region values and then 
-    //$regions = $helper->setRegionNumbers($allowedRegions);
+    // Set Region numbers queries the mempro database for all region values and then
+    // $regions = $helper->setRegionNumbers($allowedRegions);
 }
 
 require JModuleHelper::getLayoutPath('mod_membership_pro_region_queries');
