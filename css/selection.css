@@ -1,0 +1,49 @@
+/*  GOE scheme
+red: ff012b
+black: #000103
+grey: #eaebe4
+white: #fffffa
+pink: #ffa69e
+dark pink - links/button hover: ff776b
+*/
+
+/* button styles */
+.btn-award {
+	float: right;
+	margin-left: 2px;
+	margin-bottom: 5px;
+	display: block;
+}
+
+@media print {
+	header nav, footer {
+		display: none;
+	}
+	#Mod133 {
+		display: none;
+	}
+	.btn-award {
+		display: none;
+	}
+	#search {
+		display: none;
+	}
+	body {
+		font-size: 14px;
+	}
+	a.btn.dropdown-toggle {
+		display: none;
+	}
+	#back-to-top {
+	     display: none;
+	}
+	@page {
+		size: A4;
+	}
+	
+	@page {
+        @bottom-right {
+           content: counter(page) " of " counter(pages);
+       }
+    }	
+}

@@ -7,7 +7,7 @@ defined('_JEXEC') or die();
 
 use Joomla\Utilities\ArrayHelper;
 
-class OSMembershipRegionQueriesHelper
+class OSMembershipSelectionQueriesHelper
 {
 
     public $debug;
@@ -41,18 +41,18 @@ class OSMembershipRegionQueriesHelper
      * " inner join jos_osmembership_fields fs on fv.field_id=fs.id ".
      * "where fs.name='region' and fv.field_value='".$region."'";
      */
-    public function setSubscriberIdsInRegion($regionNumbers)
+    public function setSubscriberIdsByAward()
     {
         $db = JFactory::getDbo();
         $query = $db->getQuery(true);
 
-        $rnString = implode(',', $regionNumbers);
-
+       
+        //Find subscriberer IDs where there is a no-zero string in the award section
         $query->select('fv.subscriber_id')
             ->from($db->quoteName('#__osmembership_field_value', 'fv'))
             ->join('INNER', $db->quoteName('#__osmembership_fields', 'fs') . ' ON ' . $db->quoteName('fv.field_id') . ' = ' . $db->quoteName('fs.id'))
-            ->where($db->quoteName('fs.name') . " = " . $db->quote('region'))
-            ->where($db->quoteName('fv.field_value') . ' IN (' . $rnString . ') ');
+            ->where($db->quoteName('fs.name') . " = " . $db->quote('award'))
+            ->where($db->quoteName('fv.field_value') . ' <> ""');
 
         $db->setQuery($query);
         $this->ids = $db->loadColumn();
@@ -147,9 +147,9 @@ class OSMembershipRegionQueriesHelper
      * @param array $standardFields
      * @param array $customFields
      */
-    public function setSubscriberData($regionNumbers, $standardFields, $customFields)
+    public function setSubscriberData($standardFields, $customFields)
     {
-        $this->setSubscriberIdsInRegion($regionNumbers);
+        $this->setSubscriberIdsByAward();
         $this->setSubscriberStandardFields($standardFields);
         $this->setSubscriberCustomFields($customFields);
 
@@ -172,31 +172,13 @@ class OSMembershipRegionQueriesHelper
         $printFields = array();
         foreach ($this->subscriberFields as $id => $data) {
 
-            $address = $data['address'] . ',';
-            if (strlen($data['address2']) > 0) {
-                $address .= ' ' . $data['address2'] . ',';
-            }
-            if (strlen($data['address3']) > 0) {
-                $address .= ' ' . $data['address3'] . ',';
-            }
-            if (strlen($data['city']) > 0) {
-                $address .= ' ' . $data['city'] . ',';
-            }
-            if (strlen($data['county']) > 0) {
-                $address .= ' ' . $data['county'] . ',';
-            }
-            if (strlen($data['country']) > 0) {
-                $address .= ' ' . $data['country'] . '.';
-            }
-            if (strlen($data['zip']) > 0) {
-                $address .= " " . $data['zip'];
-            }
-
+           
             $printFields[$id]['membership_id'] = $data['membership_id'] . '<br>(' . $data['region'] . ')';
             $printFields[$id]['name'] = strtoupper($data['last_name']) . ', ' . $data['title'] . " " . $data['first_name'];
-            $printFields[$id]['address'] = $address;
+            
             $printFields[$id]['email'] = $data['email'];
             $printFields[$id]['phone'] = $data['phone'];
+            $printFields[$id]['award'] = $data['award'];
         }
         if ($this->debug) {
             $r = var_export($printFields, true);
@@ -205,160 +187,6 @@ class OSMembershipRegionQueriesHelper
         return $printFields;
     }
 
-    /**
-     * Get all of the possible options for region numbers from the membership database.
-     * Not currently used by anthing.
-     * select id,fieldtype from jos_osmembership_fields where name='region';
-     * select field_value from jos_osmembership_field_value where field_id=16;
-     */
-    public function setRegionNumbers()
-    {
-        $db = &JFactory::getDBO();
-        $query = $db->getQuery(true);
-        
-        $query->select(array(
-            'distinct fv.field_value'
-        ))
-            ->from($db->quoteName('#__osmembership_field_value', 'fv'))
-            ->join('INNER', $db->quoteName('#__osmembership_fields', 'fs') . ' ON ' . $db->quoteName('fv.field_id') . ' = ' . $db->quoteName('fs.id'))
-            ->where($db->quoteName('fs.name') . " = " . $db->quote('region'));
-           
-
-        $db->setQuery($query);
-
-        $rvals = $db->loadColumn();
-        
-        $regions = array();
-        foreach ($rvals as $r) {
-            $rNum = trim($r);
-            if (strlen($rNum) > 0) {
-                $regions[] = $r;
-            }
-        }
-        sort($regions);
-        return $regions;
-    }
-
-    /**
-     * Check user's group and limit what they are allowed to check.
-     * Region Groups must be called RegionXX
-     */
-    public function setAllowedRegions()
-    {
-        $allowedRegions=array();
-        $user = JFactory::getUser();
-        $groupIds = $user->get('groups');
-        
-        $db = JFactory::getDBO();
-
-        $groupIdList = '(' . implode(',', $groupIds) . ')';
-
-        $query = $db->getQuery(true);
-        $query->select('id, title');
-        $query->from('#__usergroups');
-        $query->where('id IN ' . $groupIdList);
-        $db->setQuery($query);
-        $rows = $db->loadRowList();
-        $grouplist = '';
-        foreach ($rows as $group) {
-            if(substr($group[1], 0, 6) == 'Region') {
-                $allowedRegions[] = trim(substr($group[1], 6));
-            }
-        }
-        if ($debug) {
-            $r = var_export($allowedRegions, true);
-            file_put_contents($debugFile, "ALLOWED\n" . $r, FILE_APPEND);
-        }
-       return $allowedRegions;
-    }
-    
-    /**
-     * Sanity check that the POST data is really coming from the logged in user and that the groups match.
-     * This might not seem necessary because we have only given them allowed groups to query but it woudl not be impossible for
-     * someone to use a CURL post if they worked out the format so checking here too seems a good idea.
-     * @param unknown $post
-     */
-    public function checkPostData() {
-        $regionNumbersToQuery = array();
-       
-        $input = new JInput();
-        $post = $input->getArray($_POST);
-        
-        if ($debug) {
-            $r = var_export($post, true);
-            file_put_contents($debugFile, "POST\n" . $r, FILE_APPEND);
-        }
-        
-        foreach ($post as $label => $value) {
-            if (substr($label, 0, 4) == 'regi') {
-                $regionNumbersToQuery[] = $value;
-            }
-        }
-        
-        $allowedRegions = $this->setAllowedRegions();
-        foreach($regionNumbersToQuery as $regionNumber) {
-            if (!in_array($regionNumber, $allowedRegions)) {
-                throw new Exception("Current user is not authorised to access data for Region " . $regionNumber);
-            }
-        }
-        return $regionNumbersToQuery;
-    }
-    /**
-     * Given a last name will return all the subscriber details associated with that name
-     */
-    public function setSubscribersByName($lastName) {
-        
-    }
-    
-    /**
-     * Set the subscriber fields from a given last_name
-     * @param unknown $lastName
-     * @param unknown $standardFields
-     * @param unknown $customFields
-     */
-    public function setSubscriberDataByName($lastName, $standardFields, $customFields)
-    {
-        $db = JFactory::getDbo();
-        $query = $db->getQuery(true);
-        
-        $query->select(implode(',', $standardFields))
-        ->from('#__osmembership_subscribers')  
-        ->where($db->quoteName('last_name') . " LIKE ". $db->quote('%'.$lastName.'%'));
-     
-        
-        
-        $db->setQuery($query);
-        
-        $rows = $db->loadAssocList();
-        foreach ($rows as $row) {
-            $this->subscriberStandardFields[$row['id']] = $row;
-            $this->ids[] = $row['id'];
-        }
-        
-        if ($this->debug) {
-            $r = var_export($rows, true);
-            file_put_contents($this->debugFile, $r, FILE_APPEND);
-        }
-        
-        $this->setSubscriberCustomFields($customFields);
-        
-        // merge the standard and custom data
-        foreach ($this->subscriberStandardFields as $id => $data) {
-            $this->subscriberFields[$id] = array_merge($data, $this->subscriberCustomFields[$id]);
-        }
-    }
-    /**
-     * We will log the reason for access to a file for now. This should be in the log directory
-     */
-    public function logReason() {
-        
-    }
-    
-    /**
-     * 
-     */
-    public function checkPostDataNameQuery() {
-        
-    }
+  
     
 }
