@@ -4,7 +4,6 @@ defined('_JEXEC') or die();
 ?>
 <?php
 
-echo "<button class=\"btn-primary btn-award\"  onclick=\"window.print()\">Print table</button>";
 
 echo "<button class=\"btn-primary btn-award\"  onclick=\"download_table_as_csv('MembersAwards')\">Export CSV</button>";
 echo "<br>";
