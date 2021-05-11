@@ -7,7 +7,7 @@
  * 
  */
 $debugFile = "tmp/memproqsel.txt";
-$debug = true;
+$debug = false;
 // No direct access
 defined('_JEXEC') or die();
 
