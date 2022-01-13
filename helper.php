@@ -55,7 +55,36 @@ class OSMembershipSelectionQueriesHelper
             ->where($db->quoteName('fv.field_value') . ' <> ""');
 
         $db->setQuery($query);
+        $ids = $db->loadColumn();
+        
+        //The next queries are here because subscriptions can overlap, so one person can have two
+        //subcription IDs. The next two queries find the lates subscription by looking at
+        //the maximum to_date.
+        
+        $query = $db->getQuery(true);
+        $innerQuery = $db->getQuery(true);
+        
+        $innerQuery->select('max('.$db->quoteName('to_date').')')
+        ->from($db->quoteName('#__osmembership_subscribers', 'b'))
+        ->where($db->quoteName('a.last_name') . ' = ' . $db->quoteName('b.last_name'))
+        ->where($db->quoteName('a.first_name') . ' = ' . $db->quoteName('b.first_name'))
+        ->where($db->quoteName('a.published') . ' = ' . $db->quote('1'))
+        ->where($db->quoteName('b.published') . ' = ' . $db->quote('1'));
+        
+        
+        //echo $innerQuery->dump();
+        
+        
+        $query->select('id')
+        ->from($db->quoteName('#__osmembership_subscribers', 'a'))
+        ->where($db->quoteName('to_date') . '=(' . $innerQuery.')' )
+        ->where('id IN ( ' . implode(',', $ids) . ')');
+        
+        
+        //echo $query->dump();
+        $db->setQuery($query);
         $this->ids = $db->loadColumn();
+        
 
         if ($this->debug) {
             $r = var_export($this->ids, true);

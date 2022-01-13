@@ -2,7 +2,7 @@
 <extension type="module" version="3.1.0" client="site" method="upgrade">
     <name>Membership Pro Selection Queries</name>
     <author>Zoe Slattery</author>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
     <description>Queries on region to supplement Membership Pro</description>
     <files>
         <filename>mod_membership_pro_selection_queries.xml</filename>
