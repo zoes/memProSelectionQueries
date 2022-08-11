@@ -57,18 +57,27 @@ class OSMembershipSelectionQueriesHelper
         $db->setQuery($query);
         $ids = $db->loadColumn();
         
-        $query = $db->getQuery(true);
+        //The next queries are here because subscriptions can overlap, so one person can have two
+        //subcription IDs. The next two queries find the lates subscription by looking at
+        //the maximum to_date.
         
-        //There is a setting to 'sync data' in the admin interface. If this is not set then then 'plan_main_record' which is always the oldest
-        //record, is the one that is updated when users make a change and the one that is displayed to users.
-        //This is quite confusing in the admin screens because the tendency is to look at and update the current active subscription.
-        //In August 2022 Julia and I agreed to to sync user data - so choosing the plan_main_record will be unnecessary.
-        //It is implemented here for two reasons - data is only synced when it's changed so we may have historical changes which have only
-        //been applied to the main record, it's also safer if we ever have a requirement to change back to not syncing data.
+        $query = $db->getQuery(true);
+        $innerQuery = $db->getQuery(true);
+        
+        $innerQuery->select('max('.$db->quoteName('to_date').')')
+        ->from($db->quoteName('#__osmembership_subscribers', 'b'))
+        ->where($db->quoteName('a.last_name') . ' = ' . $db->quoteName('b.last_name'))
+        ->where($db->quoteName('a.first_name') . ' = ' . $db->quoteName('b.first_name'))
+        ->where($db->quoteName('a.published') . ' = ' . $db->quote('1'))
+        ->where($db->quoteName('b.published') . ' = ' . $db->quote('1'));
+        
+        
+        //echo $innerQuery->dump();
+        
         
         $query->select('id')
-        ->from($db->quoteName('#__osmembership_subscribers'))
-        ->where($db->quoteName('plan_main_record') . ' = ' . $db->quote('1'))
+        ->from($db->quoteName('#__osmembership_subscribers', 'a'))
+        ->where($db->quoteName('to_date') . '=(' . $innerQuery.')' )
         ->where('id IN ( ' . implode(',', $ids) . ')');
         
         
